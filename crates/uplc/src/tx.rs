@@ -10,6 +10,7 @@ pub use phase_one::eval_phase_one;
 use script_context::{ResolvedInput, SlotConfig};
 
 use crate::machine::cost_model::ExBudget;
+use wasm_bindgen::prelude::*;
 
 pub mod error;
 mod eval;
@@ -65,41 +66,96 @@ pub fn eval_phase_two(
     }
 }
 
+#[wasm_bindgen]
+pub struct RawUtxo {
+    input: Vec<u8>,
+    output: Vec<u8>,
+}
+
+#[wasm_bindgen]
+impl RawUtxo {
+    pub fn new(input: Vec<u8>, output: Vec<u8>) -> Self {
+        Self { input, output }
+    }
+}
+
+#[wasm_bindgen]
+pub struct RawUtxos(Vec<RawUtxo>);
+
+#[wasm_bindgen]
+pub struct Budget {
+    cpu: u64,
+    mem: u64,
+}
+
+#[wasm_bindgen]
+impl Budget {
+    pub fn new(cpu: u64, mem: u64) -> Self {
+        Self { cpu, mem }
+    }
+}
+
+#[wasm_bindgen]
+pub struct SlotConf {
+    zero_time: u64,
+    zero_slot: u64,
+    slot_length: u64,
+}
+
+#[wasm_bindgen]
+impl SlotConf {
+    pub fn new(zero_time: u64, zero_slot: u64, slot_length: u64) -> Self {
+        Self {
+            zero_time,
+            zero_slot,
+            slot_length,
+        }
+    }
+}
+
+#[wasm_bindgen]
+pub struct Red(Vec<u8>);
+
+#[wasm_bindgen]
+pub struct Redeemers(Vec<Red>);
+
 /// This function is the same as [`eval_phase_two`]
 /// but the inputs are raw bytes.
 /// initial_budget expects (cpu, mem).
 /// slot_config (zero_time, zero_slot, slot_length)
+#[wasm_bindgen]
 pub fn eval_phase_two_raw(
     tx_bytes: &[u8],
-    utxos_bytes: &[(Vec<u8>, Vec<u8>)],
+    utxos_bytes: &RawUtxos,
     cost_mdls_bytes: &[u8],
-    initial_budget: (u64, u64),
-    slot_config: (u64, u64, u64),
+    initial_budget: &Budget,
+    slot_config: SlotConf,
     run_phase_one: bool,
-) -> Result<Vec<Vec<u8>>, Error> {
+) -> Result<Redeemers, JsError> {
     let multi_era_tx = MultiEraTx::decode(Era::Babbage, tx_bytes)
-        .or_else(|_| MultiEraTx::decode(Era::Alonzo, tx_bytes))?;
+        .or_else(|_| MultiEraTx::decode(Era::Alonzo, tx_bytes))
+        .unwrap();
 
-    let cost_mdls = CostMdls::decode_fragment(cost_mdls_bytes)?;
+    let cost_mdls = CostMdls::decode_fragment(cost_mdls_bytes).unwrap();
 
     let budget = ExBudget {
-        cpu: initial_budget.0 as i64,
-        mem: initial_budget.1 as i64,
+        cpu: initial_budget.cpu as i64,
+        mem: initial_budget.mem as i64,
     };
 
     let mut utxos = Vec::new();
 
-    for (input, output) in utxos_bytes {
+    for utxo in utxos_bytes.0.iter() {
         utxos.push(ResolvedInput {
-            input: TransactionInput::decode_fragment(input)?,
-            output: TransactionOutput::decode_fragment(output)?,
+            input: TransactionInput::decode_fragment(&utxo.input).unwrap(),
+            output: TransactionOutput::decode_fragment(&utxo.output).unwrap(),
         });
     }
 
     let sc = SlotConfig {
-        zero_time: slot_config.0,
-        zero_slot: slot_config.1,
-        slot_length: slot_config.2,
+        zero_time: slot_config.zero_time,
+        zero_slot: slot_config.zero_slot,
+        slot_length: slot_config.slot_length,
     };
 
     match multi_era_tx {
@@ -112,11 +168,13 @@ pub fn eval_phase_two_raw(
                 &sc,
                 run_phase_one,
             ) {
-                Ok(redeemers) => Ok(redeemers
-                    .iter()
-                    .map(|r| r.encode_fragment().unwrap())
-                    .collect()),
-                Err(err) => Err(err),
+                Ok(redeemers) => Ok(Redeemers(
+                    redeemers
+                        .iter()
+                        .map(|r| Red(r.encode_fragment().unwrap()))
+                        .collect(),
+                )),
+                Err(err) => Err(JsError::new(&err.to_string())),
             }
         }
         // MultiEraTx::AlonzoCompatible(tx, _) => match eval_tx(&tx, &utxos, &sc) {
