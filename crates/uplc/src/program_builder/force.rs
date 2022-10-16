@@ -46,7 +46,7 @@ mod tests {
         let actual = Builder::start(1, 2, 3)
             .with_force()
             .with_lambda("i_0")
-            .with_int(1)
+            .with_int(1.into())
             .build_named();
         assert_eq!(expected, actual);
     }

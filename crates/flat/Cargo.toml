@@ -13,6 +13,8 @@ authors = ["Lucas Rosa <x@rvcas.dev>", "Kasey White <kwhitemsg@gmail.com>"]
 [dependencies]
 anyhow = "1.0.57"
 thiserror = "1.0.31"
+num-bigint = "0.4.3"
+num-traits = "0.2.15"
 
 [dev-dependencies]
 proptest = "1.0.0"

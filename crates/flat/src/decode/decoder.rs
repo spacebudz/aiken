@@ -1,3 +1,5 @@
+use num_traits::ToPrimitive;
+
 use crate::{decode::Decode, zigzag};
 
 use super::Error;
@@ -31,8 +33,8 @@ impl<'b> Decoder<'b> {
     /// filling in the next 7 least significant bits of the unsigned integer and so on.
     /// If the most significant bit was instead 0 we stop decoding any more bits.
     /// Finally we use zigzag to convert the unsigned integer back to a signed integer.
-    pub fn integer(&mut self) -> Result<isize, Error> {
-        Ok(zigzag::to_isize(self.word()?))
+    pub fn integer(&mut self) -> Result<num_bigint::BigInt, Error> {
+        Ok(zigzag::to_bigint(self.word()?.into()))
     }
 
     /// Decode a single bit of the buffer to get a bool.
@@ -73,7 +75,7 @@ impl<'b> Decoder<'b> {
     /// filling in the next 7 least significant bits of the unsigned integer and so on.
     /// If the most significant bit was instead 0 we stop decoding any more bits.
     pub fn char(&mut self) -> Result<char, Error> {
-        let character = self.word()? as u32;
+        let character = self.word()?.to_u32().unwrap();
 
         char::from_u32(character).ok_or(Error::DecodeChar(character))
     }
@@ -115,7 +117,7 @@ impl<'b> Decoder<'b> {
     /// If the most significant bit of the 8 bits is 1 then we take the next 8 and repeat the process above,
     /// filling in the next 7 least significant bits of the unsigned integer and so on.
     /// If the most significant bit was instead 0 we stop decoding any more bits.
-    pub fn word(&mut self) -> Result<usize, Error> {
+    pub fn word(&mut self) -> Result<num_bigint::BigUint, Error> {
         let mut leading_bit = 1;
         let mut final_word: usize = 0;
         let mut shl: usize = 0;
@@ -127,7 +129,7 @@ impl<'b> Decoder<'b> {
             shl += 7;
             leading_bit = word8 & 128;
         }
-        Ok(final_word)
+        Ok(final_word.into())
     }
 
     /// Decode a list of items with a decoder function.

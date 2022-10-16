@@ -39,7 +39,7 @@ pub enum Error {
     #[error("Out of Bounds\n\nindex: {}\nbytestring: {}\npossible: 0 - {}", .0, hex::encode(.1), .1.len() - 1)]
     ByteStringOutOfBounds(isize, Vec<u8>),
     #[error("Divide By Zero\n\n{0} / {1}")]
-    DivideByZero(isize, isize),
+    DivideByZero(num_bigint::BigInt, num_bigint::BigInt),
     #[error("Ed25519S PublicKey should be 32 bytes but it was {0}")]
     UnexpectedEd25519PublicKeyLength(usize),
     #[error("Ed25519S Signature should be 64 bytes but it was {0}")]

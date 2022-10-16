@@ -122,7 +122,7 @@ where
 #[derive(Debug, Clone, PartialEq)]
 pub enum Constant {
     // tag: 0
-    Integer(isize),
+    Integer(num_bigint::BigInt),
     // tag: 1
     ByteString(Vec<u8>),
     // tag: 2

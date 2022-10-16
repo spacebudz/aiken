@@ -310,7 +310,7 @@ fn encode_type(typ: &Type, bytes: &mut Vec<u8>) {
 impl<'b> Decode<'b> for Constant {
     fn decode(d: &mut Decoder) -> Result<Self, de::Error> {
         match &decode_constant(d)?[..] {
-            [0] => Ok(Constant::Integer(isize::decode(d)?)),
+            [0] => Ok(Constant::Integer(isize::decode(d)?.into())),
             [1] => Ok(Constant::ByteString(Vec::<u8>::decode(d)?)),
             [2] => Ok(Constant::String(String::decode(d)?)),
             [3] => Ok(Constant::Unit),
@@ -354,7 +354,7 @@ impl<'b> Decode<'b> for Constant {
 
 fn decode_constant_value(typ: Type, d: &mut Decoder) -> Result<Constant, de::Error> {
     match typ {
-        Type::Integer => Ok(Constant::Integer(isize::decode(d)?)),
+        Type::Integer => Ok(Constant::Integer(isize::decode(d)?.into())),
         Type::ByteString => Ok(Constant::ByteString(Vec::<u8>::decode(d)?)),
         Type::String => Ok(Constant::String(String::decode(d)?)),
         Type::Unit => Ok(Constant::Unit),
@@ -637,7 +637,7 @@ mod test {
     fn flat_encode_integer() {
         let program = Program::<Name> {
             version: (11, 22, 33),
-            term: Term::Constant(Constant::Integer(11)),
+            term: Term::Constant(Constant::Integer(11.into())),
         };
 
         let expected_bytes = vec![
@@ -656,8 +656,11 @@ mod test {
             term: Term::Constant(Constant::ProtoList(
                 Type::List(Box::new(Type::Integer)),
                 vec![
-                    Constant::ProtoList(Type::Integer, vec![Constant::Integer(7)]),
-                    Constant::ProtoList(Type::Integer, vec![Constant::Integer(5)]),
+                    Constant::ProtoList(
+                        Type::Integer,
+                        vec![Constant::Integer((7 as isize).into())],
+                    ),
+                    Constant::ProtoList(Type::Integer, vec![Constant::Integer(5.into())]),
                 ],
             )),
         };
@@ -682,10 +685,10 @@ mod test {
                 Box::new(Constant::ProtoPair(
                     Type::Integer,
                     Type::Bool,
-                    Box::new(Constant::Integer(11)),
+                    Box::new(Constant::Integer((11 as isize).into())),
                     Box::new(Constant::Bool(true)),
                 )),
-                Box::new(Constant::Integer(11)),
+                Box::new(Constant::Integer(11.into())),
             )),
         };
 
@@ -711,8 +714,11 @@ mod test {
             term: Term::Constant(Constant::ProtoList(
                 Type::List(Box::new(Type::Integer)),
                 vec![
-                    Constant::ProtoList(Type::Integer, vec![Constant::Integer(7)]),
-                    Constant::ProtoList(Type::Integer, vec![Constant::Integer(5)]),
+                    Constant::ProtoList(
+                        Type::Integer,
+                        vec![Constant::Integer((7 as isize).into())],
+                    ),
+                    Constant::ProtoList(Type::Integer, vec![Constant::Integer(5.into())]),
                 ],
             )),
         };
@@ -737,10 +743,10 @@ mod test {
                 Box::new(Constant::ProtoPair(
                     Type::Integer,
                     Type::Bool,
-                    Box::new(Constant::Integer(11)),
+                    Box::new(Constant::Integer(11.into())),
                     Box::new(Constant::Bool(true)),
                 )),
-                Box::new(Constant::Integer(11)),
+                Box::new(Constant::Integer(11.into())),
             )),
         };
 
@@ -757,7 +763,7 @@ mod test {
 
         let expected_program = Program {
             version: (11, 22, 33),
-            term: Term::Constant(Constant::Integer(11)),
+            term: Term::Constant(Constant::Integer(11.into())),
         };
 
         let actual_program: Program<Name> = Program::unflat(&bytes).unwrap();

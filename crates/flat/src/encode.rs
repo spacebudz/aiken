@@ -28,7 +28,15 @@ impl Encode for u8 {
 
 impl Encode for isize {
     fn encode(&self, e: &mut Encoder) -> Result<(), Error> {
-        e.integer(*self);
+        e.integer((*self as isize).into());
+
+        Ok(())
+    }
+}
+
+impl Encode for num_bigint::BigInt {
+    fn encode(&self, e: &mut Encoder) -> Result<(), Error> {
+        e.integer(self.clone());
 
         Ok(())
     }
@@ -36,7 +44,7 @@ impl Encode for isize {
 
 impl Encode for usize {
     fn encode(&self, e: &mut Encoder) -> Result<(), Error> {
-        e.word(*self);
+        e.word((*self as usize).into());
 
         Ok(())
     }

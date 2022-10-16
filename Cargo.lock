@@ -307,6 +307,8 @@ name = "flat-rs"
 version = "0.0.10"
 dependencies = [
  "anyhow",
+ "num-bigint",
+ "num-traits",
  "proptest",
  "thiserror",
 ]
@@ -1170,6 +1172,7 @@ dependencies = [
  "flat-rs",
  "hex",
  "num-bigint",
+ "num-traits",
  "pallas-addresses",
  "pallas-codec",
  "pallas-crypto",

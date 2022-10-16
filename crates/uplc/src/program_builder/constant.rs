@@ -2,7 +2,7 @@ use crate::ast::{Constant, Term};
 use crate::program_builder::WithTerm;
 
 pub trait WithConstant: WithTerm {
-    fn with_int(self, int: isize) -> Self::Next {
+    fn with_int(self, int: num_bigint::BigInt) -> Self::Next {
         let term = Term::Constant(Constant::Integer(int));
         self.next(term)
     }
@@ -49,7 +49,7 @@ mod tests {
                            (con integer {})
                          )", int);
             let expected = parser::program(&code).unwrap();
-            let actual = Builder::start(11, 22, 33).with_int(int).build_named();
+            let actual = Builder::start(11, 22, 33).with_int(int.into()).build_named();
             assert_eq!(expected, actual);
         }
     }

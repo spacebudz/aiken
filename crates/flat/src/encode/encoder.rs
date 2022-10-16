@@ -1,3 +1,5 @@
+use num_traits::ToPrimitive;
+
 use crate::{encode::Encode, zigzag};
 
 use super::Error;
@@ -90,10 +92,10 @@ impl Encoder {
     /// First we use zigzag once to double the number and encode the negative sign as the least significant bit.
     /// Next we encode the 7 least significant bits of the unsigned integer. If the number is greater than
     /// 127 we encode a leading 1 followed by repeating the encoding above for the next 7 bits and so on.
-    pub fn integer(&mut self, i: isize) -> &mut Self {
-        let i = zigzag::to_usize(i);
+    pub fn integer(&mut self, i: num_bigint::BigInt) -> &mut Self {
+        let i = zigzag::to_bigint(i);
 
-        self.word(i);
+        self.word(i.to_biguint().unwrap());
 
         self
     }
@@ -103,7 +105,7 @@ impl Encoder {
     /// We encode the 7 least significant bits of the unsigned byte. If the char value is greater than
     /// 127 we encode a leading 1 followed by repeating the above for the next 7 bits and so on.
     pub fn char(&mut self, c: char) -> &mut Self {
-        self.word(c as usize);
+        self.word((c as usize).into());
 
         self
     }
@@ -133,18 +135,19 @@ impl Encoder {
     /// This is byte alignment agnostic.
     /// We encode the 7 least significant bits of the unsigned byte. If the char value is greater than
     /// 127 we encode a leading 1 followed by repeating the above for the next 7 bits and so on.
-    pub fn word(&mut self, c: usize) -> &mut Self {
-        let mut d = c;
+    pub fn word(&mut self, c: num_bigint::BigUint) -> &mut Self {
+        let d = c;
         loop {
-            let mut w = (d & 127) as u8;
-            d >>= 7;
+            let mut d_num = d.to_i32().unwrap();
+            let mut w = (d_num & 127) as u8;
+            d_num >>= 7;
 
-            if d != 0 {
+            if d_num != 0 {
                 w |= 128;
             }
             self.bits(8, w);
 
-            if d == 0 {
+            if d_num == 0 {
                 break;
             }
         }

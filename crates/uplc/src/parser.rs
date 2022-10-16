@@ -106,7 +106,7 @@ peg::parser! {
           = "(" _* "error" _* ")" { Term::Error }
 
         rule constant_integer() -> Constant
-          = "integer" _+ i:number() { Constant::Integer(i as isize) }
+          = "integer" _+ i:bigint() { Constant::Integer(i) }
 
         rule constant_bytestring() -> Constant
           = "bytestring" _+ "#" i:ident()* {
@@ -121,6 +121,9 @@ peg::parser! {
 
         rule constant_unit() -> Constant
           = "unit" _+ "()" { Constant::Unit }
+
+        rule bigint() -> num_bigint::BigInt
+          = n:$("-"* ['0'..='9']+) {? num_bigint::BigInt::from_str(n).or(Err("bigint")) }
 
         rule number() -> isize
           = n:$("-"* ['0'..='9']+) {? n.parse().or(Err("isize")) }
@@ -163,7 +166,7 @@ mod test {
             program,
             Program::<Name> {
                 version: (11, 22, 33),
-                term: Term::Constant(Constant::Integer(11)),
+                term: Term::Constant(Constant::Integer(num_bigint::BigInt::from(11))),
             }
         );
     }

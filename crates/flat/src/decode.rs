@@ -5,6 +5,7 @@ use crate::filler::Filler;
 
 pub use decoder::Decoder;
 pub use error::Error;
+use num_traits::ToPrimitive;
 
 pub trait Decode<'b>: Sized {
     fn decode(d: &mut Decoder) -> Result<Self, Error>;
@@ -32,13 +33,19 @@ impl Decode<'_> for u8 {
 
 impl Decode<'_> for isize {
     fn decode(d: &mut Decoder) -> Result<Self, Error> {
+        d.integer().map(|b| b.to_isize().unwrap())
+    }
+}
+
+impl Decode<'_> for num_bigint::BigInt {
+    fn decode(d: &mut Decoder) -> Result<Self, Error> {
         d.integer()
     }
 }
 
 impl Decode<'_> for usize {
     fn decode(d: &mut Decoder) -> Result<Self, Error> {
-        d.word()
+        d.word().map(|b| b.to_usize().unwrap())
     }
 }
 

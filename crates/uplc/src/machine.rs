@@ -450,11 +450,25 @@ impl Value {
     pub fn to_ex_mem(&self) -> i64 {
         match self {
             Value::Con(c) => match c {
+                // TODO: Figure out the costs for BigUInt and BigNInt
                 Constant::Integer(i) => {
-                    if *i == 0 {
+                    let num = {
+                        let (sign, num) = i.to_u64_digits();
+                        match sign {
+                            num_bigint::Sign::Minus => *num.first().unwrap() as i128 * -1,
+                            _ => {
+                                if num.len() == 0 {
+                                    0
+                                } else {
+                                    *num.first().unwrap() as i128
+                                }
+                            }
+                        }
+                    };
+                    if num == 0 {
                         1
                     } else {
-                        ((i.abs() as f64).log2().floor() as i64 / 64) + 1
+                        ((num.abs() as f64).log2().floor() as i64 / 64) + 1
                     }
                 }
                 Constant::ByteString(b) => {
@@ -512,14 +526,23 @@ impl Value {
                     new_stack.append(&mut stack);
                     stack = new_stack;
                 }
-                PlutusData::BigInt(i) => {
-                    if let BigInt::Int(g) = i {
-                        let numb: i128 = (*g).try_into().unwrap();
-                        total += Value::Con(Constant::Integer(numb as isize)).to_ex_mem();
-                    } else {
-                        unreachable!()
-                    };
-                }
+                PlutusData::BigInt(bi) => match bi {
+                    BigInt::Int(i) => {
+                        let numb: i128 = (*i).try_into().unwrap();
+                        total += Value::Con(Constant::Integer(num_bigint::BigInt::from(numb)))
+                            .to_ex_mem();
+                    }
+                    BigInt::BigUInt(b) => {
+                        let numb = num_bigint::BigInt::from_bytes_be(num_bigint::Sign::Plus, b);
+                        total += Value::Con(Constant::Integer(num_bigint::BigInt::from(numb)))
+                            .to_ex_mem();
+                    }
+                    BigInt::BigNInt(b) => {
+                        let numb = num_bigint::BigInt::from_bytes_be(num_bigint::Sign::Minus, b);
+                        total += Value::Con(Constant::Integer(num_bigint::BigInt::from(numb)))
+                            .to_ex_mem();
+                    }
+                },
                 PlutusData::BoundedBytes(b) => {
                     let byte_string: Vec<u8> = b.deref().clone();
                     total += Value::Con(Constant::ByteString(byte_string)).to_ex_mem();

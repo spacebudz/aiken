@@ -12,6 +12,7 @@ use super::{
     cost_model::{BuiltinCosts, ExBudget},
     Error, Value,
 };
+use num_traits::cast::ToPrimitive;
 
 //#[derive(std::cmp::PartialEq)]
 //pub enum EvalMode {
@@ -346,50 +347,43 @@ impl DefaultFunction {
             },
             DefaultFunction::DivideInteger => match (&args[0], &args[1]) {
                 (Value::Con(Constant::Integer(arg1)), Value::Con(Constant::Integer(arg2))) => {
-                    if *arg2 != 0 {
-                        let ret = (*arg1 as f64) / (*arg2 as f64);
-
-                        Ok(Value::Con(Constant::Integer(ret.floor() as isize)))
-                    } else {
-                        Err(Error::DivideByZero(*arg1, *arg2))
+                    match arg1.checked_div(arg2) {
+                        Some(ret) => Ok(Value::Con(Constant::Integer(ret))),
+                        None => Err(Error::DivideByZero(arg1.clone(), arg2.clone())),
                     }
                 }
                 _ => unreachable!(),
             },
             DefaultFunction::QuotientInteger => match (&args[0], &args[1]) {
                 (Value::Con(Constant::Integer(arg1)), Value::Con(Constant::Integer(arg2))) => {
-                    if *arg2 != 0 {
-                        let ret = (*arg1 as f64) / (*arg2 as f64);
-
-                        let ret = if ret < 0. { ret.ceil() } else { ret.floor() };
-
-                        Ok(Value::Con(Constant::Integer(ret as isize)))
-                    } else {
-                        Err(Error::DivideByZero(*arg1, *arg2))
+                    match arg1.checked_div(arg2) {
+                        Some(ret) => Ok(Value::Con(Constant::Integer(ret))),
+                        None => Err(Error::DivideByZero(arg1.clone(), arg2.clone())),
                     }
                 }
                 _ => unreachable!(),
             },
             DefaultFunction::RemainderInteger => match (&args[0], &args[1]) {
                 (Value::Con(Constant::Integer(arg1)), Value::Con(Constant::Integer(arg2))) => {
-                    if *arg2 != 0 {
+                    if *arg2 != num_bigint::BigInt::from(0 as u64) {
                         let ret = arg1 % arg2;
 
                         Ok(Value::Con(Constant::Integer(ret)))
                     } else {
-                        Err(Error::DivideByZero(*arg1, *arg2))
+                        Err(Error::DivideByZero(arg1.clone(), arg2.clone()))
                     }
                 }
                 _ => unreachable!(),
             },
             DefaultFunction::ModInteger => match (&args[0], &args[1]) {
                 (Value::Con(Constant::Integer(arg1)), Value::Con(Constant::Integer(arg2))) => {
-                    if *arg2 != 0 {
+                    if *arg2 != num_bigint::BigInt::from(0 as u64) {
                         let ret = arg1 % arg2;
 
-                        Ok(Value::Con(Constant::Integer(ret.abs())))
+                        //Ok(Value::Con(Constant::Integer(ret.abs()))) // TODO
+                        Ok(Value::Con(Constant::Integer(ret))) // TODO
                     } else {
-                        Err(Error::DivideByZero(*arg1, *arg2))
+                        Err(Error::DivideByZero(arg1.clone(), arg2.clone()))
                     }
                 }
                 _ => unreachable!(),
@@ -423,7 +417,9 @@ impl DefaultFunction {
             },
             DefaultFunction::ConsByteString => match (&args[0], &args[1]) {
                 (Value::Con(Constant::Integer(arg1)), Value::Con(Constant::ByteString(arg2))) => {
-                    let mut ret = vec![(arg1 % 256) as u8];
+                    let mut ret = vec![(arg1 % num_bigint::BigInt::from(256 as usize))
+                        .to_u8()
+                        .unwrap()];
                     ret.extend(arg2.clone());
 
                     Ok(Value::Con(Constant::ByteString(ret)))
@@ -436,8 +432,18 @@ impl DefaultFunction {
                     Value::Con(Constant::Integer(arg2)),
                     Value::Con(Constant::ByteString(arg3)),
                 ) => {
-                    let skip = if 0 > *arg1 { 0 } else { *arg1 as usize };
-                    let take = if 0 > *arg2 { 0 } else { *arg2 as usize };
+                    let arg1_num = arg1.to_usize();
+                    let arg2_num = arg2.to_usize();
+                    let skip = if arg1_num.is_none() {
+                        0
+                    } else {
+                        arg1_num.unwrap()
+                    };
+                    let take = if arg2_num.is_none() {
+                        0
+                    } else {
+                        arg2_num.unwrap()
+                    };
 
                     let ret: Vec<u8> = arg3.iter().skip(skip).take(take).cloned().collect();
 
@@ -447,20 +453,23 @@ impl DefaultFunction {
             },
             DefaultFunction::LengthOfByteString => match &args[0] {
                 Value::Con(Constant::ByteString(arg1)) => {
-                    Ok(Value::Con(Constant::Integer(arg1.len() as isize)))
+                    Ok(Value::Con(Constant::Integer(arg1.len().into())))
                 }
                 _ => unreachable!(),
             },
             DefaultFunction::IndexByteString => match (&args[0], &args[1]) {
                 (Value::Con(Constant::ByteString(arg1)), Value::Con(Constant::Integer(arg2))) => {
-                    let index = *arg2 as usize;
+                    let index = arg2.to_usize().unwrap();
 
-                    if 0 <= *arg2 && index < arg1.len() {
+                    if index < arg1.len() {
                         let ret = arg1[index] as isize;
 
-                        Ok(Value::Con(Constant::Integer(ret)))
+                        Ok(Value::Con(Constant::Integer(ret.into())))
                     } else {
-                        Err(Error::ByteStringOutOfBounds(*arg2, arg1.to_vec()))
+                        Err(Error::ByteStringOutOfBounds(
+                            arg2.to_isize().unwrap(),
+                            arg1.to_vec(),
+                        ))
                     }
                 }
                 _ => unreachable!(),
@@ -687,7 +696,7 @@ impl DefaultFunction {
 
                     let constr_data = PlutusData::Constr(Constr {
                         // TODO: handle other types of constructor tags
-                        tag: convert_constr_to_tag(*i as u64),
+                        tag: convert_constr_to_tag(i.to_u64().unwrap()),
                         any_constructor: None,
                         fields: data_list,
                     });
@@ -732,9 +741,35 @@ impl DefaultFunction {
                 _ => unreachable!(),
             },
             DefaultFunction::IData => match &args[0] {
-                Value::Con(Constant::Integer(i)) => Ok(Value::Con(Constant::Data(
-                    PlutusData::BigInt(BigInt::Int((*i as i64).try_into().unwrap())),
-                ))),
+                Value::Con(Constant::Integer(i)) => {
+                    let (sign, u64_digits) = i.to_u64_digits();
+                    match u64_digits.len() {
+                        0 => Ok(Value::Con(Constant::Data(PlutusData::BigInt(BigInt::Int(
+                            0.into(),
+                        ))))),
+                        1 => match sign {
+                            num_bigint::Sign::Minus => {
+                                Ok(Value::Con(Constant::Data(PlutusData::BigInt(BigInt::Int(
+                                    (-(*u64_digits.first().unwrap() as i128) as i64).into(),
+                                )))))
+                            }
+                            _ => Ok(Value::Con(Constant::Data(PlutusData::BigInt(BigInt::Int(
+                                (*u64_digits.first().unwrap() as i64).into(),
+                            ))))),
+                        },
+                        _ => {
+                            let (sign, bytes) = i.to_bytes_be();
+                            match sign {
+                                num_bigint::Sign::Minus => Ok(Value::Con(Constant::Data(
+                                    PlutusData::BigInt(BigInt::BigNInt(bytes.into())),
+                                ))),
+                                _ => Ok(Value::Con(Constant::Data(PlutusData::BigInt(
+                                    BigInt::BigUInt(bytes.into()),
+                                )))),
+                            }
+                        }
+                    }
+                }
                 _ => unreachable!(),
             },
             DefaultFunction::BData => match &args[0] {
@@ -749,7 +784,9 @@ impl DefaultFunction {
                         Type::Integer,
                         Type::List(Box::new(Type::Data)),
                         // TODO: handle other types of constructor tags
-                        Box::new(Constant::Integer(convert_tag_to_constr(c.tag as isize))),
+                        Box::new(Constant::Integer(
+                            convert_tag_to_constr(c.tag as isize).into(),
+                        )),
                         Box::new(Constant::ProtoList(
                             Type::Data,
                             c.fields
@@ -794,15 +831,26 @@ impl DefaultFunction {
                 v => Err(Error::DeserialisationError(v.clone())),
             },
             DefaultFunction::UnIData => match &args[0] {
-                Value::Con(Constant::Data(PlutusData::BigInt(b))) => {
-                    if let BigInt::Int(i) = b {
-                        let x: i128 = (*i).try_into().unwrap();
-
-                        Ok(Value::Con(Constant::Integer(x as isize)))
-                    } else {
-                        unreachable!()
+                Value::Con(Constant::Data(PlutusData::BigInt(bi))) => match bi {
+                    BigInt::Int(i) => {
+                        let numb: i128 = (*i).try_into().unwrap();
+                        Ok(Value::Con(Constant::Integer(num_bigint::BigInt::from(
+                            numb,
+                        ))))
                     }
-                }
+                    BigInt::BigUInt(b) => {
+                        let numb = num_bigint::BigInt::from_bytes_be(num_bigint::Sign::Plus, b);
+                        Ok(Value::Con(Constant::Integer(num_bigint::BigInt::from(
+                            numb,
+                        ))))
+                    }
+                    BigInt::BigNInt(b) => {
+                        let numb = num_bigint::BigInt::from_bytes_be(num_bigint::Sign::Minus, b);
+                        Ok(Value::Con(Constant::Integer(num_bigint::BigInt::from(
+                            numb,
+                        ))))
+                    }
+                },
                 v => Err(Error::DeserialisationError(v.clone())),
             },
             DefaultFunction::UnBData => match &args[0] {

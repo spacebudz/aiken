@@ -71,7 +71,7 @@ mod tests {
             .with_apply()
             .with_lambda(my_var)
             .with_var(my_var)
-            .with_int(1)
+            .with_int(1.into())
             .build_named();
         assert_eq!(expected, actual);
     }
@@ -90,7 +90,7 @@ mod tests {
             .with_lambda(my_var)
             .with_var(my_var)
             .with_lambda(their_var)
-            .with_int(1)
+            .with_int(1.into())
             .build_named();
         assert_eq!(expected, actual);
     }
